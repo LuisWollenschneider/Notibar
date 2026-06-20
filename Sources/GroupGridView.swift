@@ -23,7 +23,9 @@ struct GroupGridView: View {
                             Image(nsImage: IconRenderer.badgedIcon(
                                 forAppPath: app.path,
                                 badge: store.badge(for: app),
-                                side: 36))
+                                side: 36,
+                                colorMode: store.colorMode,
+                                badgeColor: store.badgeColor))
                                 .frame(width: 40, height: 40)
                         }
                         .buttonStyle(.plain)

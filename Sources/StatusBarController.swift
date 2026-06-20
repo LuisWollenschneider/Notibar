@@ -42,6 +42,15 @@ final class StatusBarController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refreshLabels() }
             .store(in: &cancellables)
+        // Redraw icons when color preferences change.
+        store.$colorMode
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshLabels() }
+            .store(in: &cancellables)
+        store.$badgeColor
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshLabels() }
+            .store(in: &cancellables)
 
         store.refreshBadges()
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak store] _ in
@@ -127,14 +136,17 @@ final class StatusBarController {
     /// Update the combined main item + dedicated items from current badges.
     private func refreshLabels() {
         if let button = mainItem.button {
-            button.image = IconRenderer.summaryIcon(total: store.summaryTotal)
+            button.image = IconRenderer.summaryIcon(total: store.summaryTotal,
+                                                    badgeColor: store.badgeColor)
             button.attributedTitle = NSAttributedString(string: "")
         }
 
         for app in store.dedicatedApps {
             guard let item = dedicatedItems[app.bundleID], let button = item.button else { continue }
             button.image = IconRenderer.badgedIcon(forAppPath: app.path,
-                                                   badge: store.badge(for: app), side: 18)
+                                                   badge: store.badge(for: app), side: 18,
+                                                   colorMode: store.colorMode,
+                                                   badgeColor: store.badgeColor)
             button.attributedTitle = NSAttributedString(string: "")
         }
     }

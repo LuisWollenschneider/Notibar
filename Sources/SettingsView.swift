@@ -24,15 +24,57 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("General").font(.title3.bold())
             VStack(spacing: 0) {
-                Toggle("Start at login", isOn: $store.startAtLogin)
-                    .padding(.horizontal, 12).padding(.vertical, 10)
+                settingRow("Start at login") {
+                    Toggle("", isOn: $store.startAtLogin)
+                        .toggleStyle(.switch).labelsHidden()
+                }
                 Divider()
-                Toggle("Show window on startup", isOn: $store.showWindowOnStartup)
-                    .padding(.horizontal, 12).padding(.vertical, 10)
+                settingRow("Show window on startup") {
+                    Toggle("", isOn: $store.showWindowOnStartup)
+                        .toggleStyle(.switch).labelsHidden()
+                }
+                Divider()
+                settingRow("Icon color") {
+                    Picker("", selection: $store.colorMode) {
+                        ForEach(ColorMode.allCases, id: \.self) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 230)
+                }
+                Divider()
+                settingRow("Badge color") {
+                    HStack(spacing: 8) {
+                        ColorPicker("", selection: badgeColorBinding, supportsOpacity: false)
+                            .labelsHidden()
+                        Button("Reset") { store.badgeColor = .systemRed }
+                            .disabled(store.badgeColor == .systemRed)
+                    }
+                }
             }
             .background(Color(nsColor: .controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
+    }
+
+    /// One settings row: label on the left, control flush right, full width.
+    private func settingRow<Content: View>(_ title: String,
+                                           @ViewBuilder control: () -> Content) -> some View {
+        HStack {
+            Text(title)
+            Spacer(minLength: 12)
+            control()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+    }
+
+    /// Bridges the store's `NSColor` badge color to SwiftUI's `ColorPicker`.
+    private var badgeColorBinding: Binding<Color> {
+        Binding(
+            get: { Color(nsColor: store.badgeColor) },
+            set: { store.badgeColor = NSColor($0) }
+        )
     }
 
     // MARK: - Icons / apps

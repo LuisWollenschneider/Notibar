@@ -16,6 +16,21 @@ enum AppMode: String, Codable, CaseIterable {
     }
 }
 
+/// How app icons are colored in the status bar / popover.
+enum ColorMode: String, Codable, CaseIterable {
+    case fullColor          // always full color
+    case notificationsColor // mono when idle, color when a notification is present (default)
+    case alwaysMono         // always monochrome
+
+    var label: String {
+        switch self {
+        case .fullColor: return "Full color"
+        case .notificationsColor: return "Color on notify"
+        case .alwaysMono: return "Monochrome"
+        }
+    }
+}
+
 struct ManagedApp: Codable, Identifiable, Equatable {
     var id: String { bundleID }
     let bundleID: String

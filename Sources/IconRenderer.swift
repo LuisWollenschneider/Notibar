@@ -15,22 +15,31 @@ enum IconRenderer {
         return img
     }
 
-    /// Bell for the combined summary item, with the total count in a red circle.
-    static func summaryIcon(total: Int) -> NSImage {
+    /// Bell for the combined summary item, with the total count in a colored circle.
+    static func summaryIcon(total: Int, badgeColor: NSColor = .systemRed) -> NSImage {
         let bell = NSImage(systemSymbolName: "bell.fill", accessibilityDescription: "Notifications")
             ?? NSImage(size: NSSize(width: barIcon, height: barIcon))
         let base = silhouette(bell, side: barIcon, color: .labelColor)
         return composite(base) { size in
-            if total > 0 { drawBadge(.count(total), in: size) }
+            if total > 0 { drawBadge(.count(total), in: size, badgeColor: badgeColor) }
         }
     }
 
-    /// App icon with its badge on top. Grayscale when idle; full color when a
-    /// notification is present, to draw attention to it.
-    static func badgedIcon(forAppPath path: String, badge: Badge, side: CGFloat) -> NSImage {
+    /// App icon with its badge on top. Coloring follows `colorMode`: full color
+    /// always, monochrome always, or (default) monochrome when idle and full
+    /// color when a notification is present, to draw attention to it.
+    static func badgedIcon(forAppPath path: String, badge: Badge, side: CGFloat,
+                           colorMode: ColorMode = .notificationsColor,
+                           badgeColor: NSColor = .systemRed) -> NSImage {
         let icon = NSWorkspace.shared.icon(forFile: path)
-        let base = badge.isVisible ? resized(icon, side: side) : grayscale(icon, side: side)
-        return composite(base) { size in drawBadge(badge, in: size) }
+        let useColor: Bool
+        switch colorMode {
+        case .fullColor: useColor = true
+        case .notificationsColor: useColor = badge.isVisible
+        case .alwaysMono: useColor = false
+        }
+        let base = useColor ? resized(icon, side: side) : grayscale(icon, side: side)
+        return composite(base) { size in drawBadge(badge, in: size, badgeColor: badgeColor) }
     }
 
     /// Plain full-color resize at the given size.
@@ -100,15 +109,15 @@ enum IconRenderer {
         return img
     }
 
-    /// Red circular/pill badge anchored to the top-right corner.
-    private static func drawBadge(_ badge: Badge, in size: NSSize) {
+    /// Circular/pill badge anchored to the top-right corner, in `badgeColor`.
+    private static func drawBadge(_ badge: Badge, in size: NSSize, badgeColor: NSColor = .systemRed) {
         switch badge {
         case .none:
             return
         case .dot:
             let d = max(6, size.width * 0.34)
             let rect = NSRect(x: size.width - d, y: size.height - d, width: d, height: d)
-            NSColor.systemRed.setFill()
+            badgeColor.setFill()
             NSBezierPath(ovalIn: rect).fill()
         case .count(let n):
             let text = n > 99 ? "99+" : "\(n)"
@@ -121,7 +130,7 @@ enum IconRenderer {
             let h = tSize.height + 2
             let w = max(h, tSize.width + 6)
             let rect = NSRect(x: size.width - w, y: size.height - h, width: w, height: h)
-            NSColor.systemRed.setFill()
+            badgeColor.setFill()
             NSBezierPath(roundedRect: rect, xRadius: h / 2, yRadius: h / 2).fill()
             let tRect = NSRect(x: rect.midX - tSize.width / 2,
                                y: rect.midY - tSize.height / 2,

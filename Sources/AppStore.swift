@@ -12,10 +12,14 @@ final class AppStore: ObservableObject {
     @Published var badges: [String: Badge] = [:]     // bundleID -> badge
     @Published var startAtLogin: Bool = false { didSet { applyLoginItem() } }
     @Published var showWindowOnStartup: Bool = true { didSet { savePrefs() } }
+    @Published var colorMode: ColorMode = .notificationsColor { didSet { savePrefs() } }
+    @Published var badgeColor: NSColor = .systemRed { didSet { savePrefs() } }
 
     private let defaults = UserDefaults.standard
     private let appsKey = "registeredApps"
     private let showWindowKey = "showWindowOnStartup"
+    private let colorModeKey = "colorMode"
+    private let badgeColorKey = "badgeColor"
 
     private init() {
         load()
@@ -80,6 +84,13 @@ final class AppStore: ObservableObject {
             apps = decoded
         }
         showWindowOnStartup = defaults.object(forKey: showWindowKey) as? Bool ?? true
+        if let raw = defaults.string(forKey: colorModeKey), let mode = ColorMode(rawValue: raw) {
+            colorMode = mode
+        }
+        if let data = defaults.data(forKey: badgeColorKey),
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
+            badgeColor = color
+        }
         if #available(macOS 13.0, *) {
             startAtLogin = SMAppService.mainApp.status == .enabled
         }
@@ -93,6 +104,10 @@ final class AppStore: ObservableObject {
 
     private func savePrefs() {
         defaults.set(showWindowOnStartup, forKey: showWindowKey)
+        defaults.set(colorMode.rawValue, forKey: colorModeKey)
+        if let data = try? NSKeyedArchiver.archivedData(withRootObject: badgeColor, requiringSecureCoding: false) {
+            defaults.set(data, forKey: badgeColorKey)
+        }
     }
 
     private func applyLoginItem() {
