@@ -15,6 +15,8 @@ final class StatusBarController {
     private var dedicatedItems: [String: NSStatusItem] = [:]   // bundleID -> item
 
     private var settingsController: SettingsWindowController?
+    private var appearanceObservation: NSKeyValueObservation?
+    private var lastAppearanceName: NSAppearance.Name?
 
     private lazy var popover: NSPopover = {
         let p = NSPopover()
@@ -66,6 +68,21 @@ final class StatusBarController {
         button.action = #selector(mainItemClicked)
         button.target = self
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+
+        // The menu bar has its own appearance (e.g. follows the wallpaper), independent
+        // of the system light/dark setting; redraw the baked bell when it flips.
+        // KVO fires on every image set even when the appearance is unchanged, so
+        // compare names to avoid a refresh -> set image -> KVO -> refresh loop.
+        lastAppearanceName = button.effectiveAppearance.name
+        appearanceObservation = button.observe(\.effectiveAppearance) { [weak self] button, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                let name = button.effectiveAppearance.name
+                guard name != self.lastAppearanceName else { return }
+                self.lastAppearanceName = name
+                self.refreshLabels()
+            }
+        }
     }
 
     /// Left-click toggles the group popover; right-click shows Settings/Quit.
@@ -137,7 +154,8 @@ final class StatusBarController {
     private func refreshLabels() {
         if let button = mainItem.button {
             button.image = IconRenderer.summaryIcon(total: store.summaryTotal,
-                                                    badgeColor: store.badgeColor)
+                                                    badgeColor: store.badgeColor,
+                                                    appearance: button.effectiveAppearance)
             button.attributedTitle = NSAttributedString(string: "")
         }
 

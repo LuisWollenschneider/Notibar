@@ -6,6 +6,8 @@ import CoreImage
 /// drawn as a red circular badge overlaid on the top-right of the icon.
 enum IconRenderer {
     private static let barIcon: CGFloat = 18
+    /// Shared context; creating one per draw (as NSCIImageRep does) is very expensive.
+    private static let ciContext = CIContext(options: [.cacheIntermediates: false])
 
     /// Plain template bell (no badge).
     static func bell() -> NSImage {
@@ -16,13 +18,21 @@ enum IconRenderer {
     }
 
     /// Bell for the combined summary item, with the total count in a colored circle.
-    static func summaryIcon(total: Int, badgeColor: NSColor = .systemRed) -> NSImage {
+    /// The bell is baked into a non-template bitmap (the badge must keep its color),
+    /// so `.labelColor` is resolved against `appearance` — pass the status button's
+    /// `effectiveAppearance`, since the menu bar can differ from the system appearance.
+    static func summaryIcon(total: Int, badgeColor: NSColor = .systemRed,
+                            appearance: NSAppearance? = nil) -> NSImage {
         let bell = NSImage(systemSymbolName: "bell.fill", accessibilityDescription: "Notifications")
             ?? NSImage(size: NSSize(width: barIcon, height: barIcon))
-        let base = silhouette(bell, side: barIcon, color: .labelColor)
-        return composite(base) { size in
-            if total > 0 { drawBadge(.count(total), in: size, badgeColor: badgeColor) }
+        var result = NSImage()
+        (appearance ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
+            let base = silhouette(bell, side: barIcon, color: .labelColor)
+            result = composite(base) { size in
+                if total > 0 { drawBadge(.count(total), in: size, badgeColor: badgeColor) }
+            }
         }
+        return result
     }
 
     /// App icon with its badge on top. Coloring follows `colorMode`: full color
@@ -86,8 +96,10 @@ enum IconRenderer {
             kCIInputSaturationKey: 0.0,
             kCIInputContrastKey: 1.1,
         ])
-        let monoImage = NSImage(size: NSSize(width: cg.width, height: cg.height))
-        monoImage.addRepresentation(NSCIImageRep(ciImage: mono))
+        guard let monoCG = ciContext.createCGImage(mono, from: CIImage(cgImage: cg).extent) else {
+            return resized(image, side: side)
+        }
+        let monoImage = NSImage(cgImage: monoCG, size: NSSize(width: cg.width, height: cg.height))
 
         let out = NSImage(size: target)
         out.lockFocus()
